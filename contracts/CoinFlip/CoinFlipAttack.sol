@@ -5,7 +5,7 @@
 
 pragma solidity ^0.8.17;
 
-import "./Coinflip.sol";
+import "./CoinFlip.sol";
 
 contract CoinFlipAttack {
     uint256 public consecutiveWins;

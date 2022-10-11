@@ -22,11 +22,6 @@ async function deployFixture() {
 
 describe(contractName, function () {
   describe("Deploy", function () {
-    it("contract owner should be deployer", async function () {
-      const { contract, deployer } = await loadFixture(deployFixture);
-      const owner = await contract.owner();
-      expect(owner).to.be.eql(deployer.address);
-    });
     it("contract balance should be 0", async function () {
       const { contract, provider } = await loadFixture(deployFixture);
       const contractBalance = await provider.getBalance(contract.address);
