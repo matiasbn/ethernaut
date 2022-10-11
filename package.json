@@ -1,7 +1,7 @@
 {
   "name": "hardhat-project",
   "scripts": {
-    "fallback": "hardhat run scripts/fallback.ts"
+    "compile": "hardhat compile"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
