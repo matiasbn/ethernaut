@@ -4,3 +4,4 @@
 export * as coinFlip from "./CoinFlip";
 export * as fallback from "./Fallback";
 export * as fallout from "./Fallout";
+export * as telephone from "./Telephone";
